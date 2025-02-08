@@ -22,9 +22,7 @@ const Home = () => {
           <div style={styles.formContainer}>
             <h2 style={styles.title}>Home Page</h2>
             <p style={styles.welcomeText}>Welcome, {user?.email}</p>
-            <Link to="/scheduling" style={styles.link}>
-              <button style={styles.submitButton}>Go to Scheduling</button>
-            </Link>
+
             <button onClick={handleLogout} style={styles.logoutButton}>Logout</button>
           </div>
         </div>
