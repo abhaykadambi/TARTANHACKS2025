@@ -1,23 +1,51 @@
-import React, { useContext, useState } from "react";
-import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
+import React, { useContext, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom"; // Import useNavigate
 import { auth } from "../firebase";
 import { AuthContext } from "../context/AuthContext";
 
 const Home = () => {
   const { user } = useContext(AuthContext);
-  const [schedules, setSchedules] = useState([
-    { id: 1, name: "Project Meeting" },
-    { id: 2, name: "Team Sync-up" },
-    { id: 3, name: "Client Presentation" },
-  ]); // Replace with actual data from your database
+  const [schedules, setSchedules] = useState([]);
+  const [loading, setLoading] = useState(true); // To manage loading state
   const navigate = useNavigate(); // Hook for navigation
+
+  useEffect(() => {
+    if (user) {
+      // Fetch the schedules from the backend
+      const fetchSchedules = async () => {
+        try {
+          const response = await fetch(`http://localhost:8080/api/schedules/${user.uid}`);
+          const data = await response.json();
+
+          if (response.ok) {
+            setSchedules(data); // Set schedules from response
+          } else {
+            console.error(data.error); // Handle any errors from the server
+            setSchedules([]);
+          }
+        } catch (err) {
+          console.error("❌ Error fetching schedules:", err);
+          setSchedules([]);
+        } finally {
+          setLoading(false); // Stop loading once the request is done
+        }
+      };
+
+      fetchSchedules();
+    }
+  }, [user]); // Trigger when the user context changes
 
   const handleLogout = async () => {
     await auth.signOut();
   };
 
   const handleCreateSchedule = () => {
-    navigate("/scheduling"); // Navigate directly to the Scheduling page
+    navigate("/create-schedule"); // Navigate directly to the Scheduling page
+  };
+
+  // Handle clicking a schedule to open it
+  const handleOpenSchedule = (scheduleName) => {
+    navigate(`/scheduling/${scheduleName}`); // Navigate to the selected schedule
   };
 
   return (
@@ -35,17 +63,25 @@ const Home = () => {
         <div style={styles.rightSection}>
           <div style={styles.schedulesContainer}>
             <h3 style={styles.schedulesTitle}>Your Schedules</h3>
-            <div style={styles.schedulesList}>
-              {schedules.length > 0 ? (
-                schedules.map((schedule) => (
-                  <div key={schedule.id} style={styles.scheduleItem}>
-                    <p style={styles.scheduleName}>{schedule.name}</p>
-                  </div>
-                ))
-              ) : (
-                <p style={styles.noSchedules}>No schedules available</p>
-              )}
-            </div>
+            {loading ? (
+              <p>Loading...</p> // Display loading state while fetching
+            ) : (
+              <div style={styles.schedulesList}>
+                {schedules.length > 0 ? (
+                  schedules.map((schedule) => (
+                    <div 
+                      key={schedule._id} 
+                      style={styles.scheduleItem}
+                      onClick={() => handleOpenSchedule(schedule.name)} // Open schedule on click
+                    >
+                      <p style={styles.scheduleName}>{schedule.name}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p style={styles.noSchedules}>No schedules available</p>
+                )}
+              </div>
+            )}
             <button onClick={handleCreateSchedule} style={styles.createScheduleButton}>
               Create New Schedule
             </button>
@@ -56,6 +92,7 @@ const Home = () => {
   );
 };
 
+// Styles
 const styles = {
   pageContainer: {
     display: "flex",
@@ -100,17 +137,6 @@ const styles = {
     marginBottom: "20px",
     color: "#555",
   },
-  submitButton: {
-    padding: "12px",
-    backgroundColor: "#007bff",
-    color: "white",
-    fontSize: "16px",
-    border: "none",
-    borderRadius: "5px",
-    cursor: "pointer",
-    width: "100%",
-    transition: "background-color 0.3s",
-  },
   logoutButton: {
     padding: "12px",
     backgroundColor: "#ff4c4c",
@@ -122,9 +148,6 @@ const styles = {
     width: "100%",
     marginTop: "15px",
     transition: "background-color 0.3s",
-  },
-  link: {
-    textDecoration: "none",
   },
   schedulesContainer: {
     backgroundColor: "white",
@@ -150,6 +173,11 @@ const styles = {
     borderRadius: "5px",
     marginBottom: "10px",
     boxShadow: "0 2px 5px rgba(0, 0, 0, 0.1)",
+    cursor: "pointer", // ✅ Make it clickable
+    transition: "background-color 0.2s ease-in-out",
+  },
+  scheduleItemHover: {
+    backgroundColor: "#e0e0e0",
   },
   scheduleName: {
     fontSize: "16px",

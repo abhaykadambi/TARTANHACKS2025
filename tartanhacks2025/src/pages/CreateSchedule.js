@@ -1,44 +1,37 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios"; // Axios to handle API requests
+import axios from "axios";
+import { AuthContext } from "../context/AuthContext"; // Import AuthContext
 
 const CreateSchedule = () => {
-  const [newSchedule, setNewSchedule] = useState({
-    name: "",
-    monday: "",
-    tuesday: "",
-    wednesday: "",
-    thursday: "",
-    friday: "",
-    saturday: "",
-    sunday: "",
-  });
-  
-  const navigate = useNavigate("/scheduling"); // Hook for navigation
+  const { user } = useContext(AuthContext); // Get logged-in user
+  const [scheduleName, setScheduleName] = useState("");
+  const navigate = useNavigate();
 
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Ensure user is authenticated
+    if (!user || !user.uid) {
+      alert("User not authenticated. Please log in.");
+      return;
+    }
+
     try {
-      const userId = "your-user-id"; // Replace with the actual logged-in user ID
-      const response = await axios.post("http://localhost:6000/api/schedule", {
-        userId,
-        name: newSchedule.name,
-        monday: newSchedule.monday,
-        tuesday: newSchedule.tuesday,
-        wednesday: newSchedule.wednesday,
-        thursday: newSchedule.thursday,
-        friday: newSchedule.friday,
-        saturday: newSchedule.saturday,
-        sunday: newSchedule.sunday,
+      const response = await axios.post("http://localhost:8080/api/schedule", {
+        userId: user.uid, // Use actual logged-in user ID
+        name: scheduleName,
+        content: "",
       });
 
       if (response.status === 201) {
-        // Navigate to the newly created schedule's page (or home page)
-        navigate(`/`);
+        console.log("✅ Schedule created successfully:", response.data);
+        navigate(`/scheduling/${scheduleName}`); // Redirect with schedule name
       }
     } catch (error) {
-      console.error("Error creating schedule:", error);
+      console.error("❌ Error creating schedule:", error);
+      alert("Failed to create schedule. Please try again.");
     }
   };
 
@@ -49,30 +42,22 @@ const CreateSchedule = () => {
         <form onSubmit={handleSubmit}>
           <input
             type="text"
-            value={newSchedule.name}
-            onChange={(e) => setNewSchedule({ ...newSchedule, name: e.target.value })}
+            value={scheduleName}
+            onChange={(e) => setScheduleName(e.target.value)}
             placeholder="Schedule Name"
             style={styles.inputField}
+            required
           />
-          {/* Add inputs for each day */}
-          {["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => (
-            <input
-              key={day}
-              type="text"
-              value={newSchedule[day]}
-              onChange={(e) => setNewSchedule({ ...newSchedule, [day]: e.target.value })}
-              placeholder={`${day.charAt(0).toUpperCase() + day.slice(1)} events`}
-              style={styles.inputField}
-            />
-          ))}
-          <button type="submit" style={styles.submitButton}>Create Schedule</button>
+          <button type="submit" style={styles.submitButton}>
+            Create Schedule
+          </button>
         </form>
       </div>
     </div>
   );
 };
 
-// Define styles here
+// Styles
 const styles = {
   pageContainer: {
     display: "flex",

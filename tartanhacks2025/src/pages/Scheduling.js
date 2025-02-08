@@ -1,162 +1,188 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useContext } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
+import axios from "axios";
 
 const Scheduling = () => {
-  const [scheduleName, setScheduleName] = useState("Untitled Schedule");
+  const { user } = useContext(AuthContext);
+  const { scheduleName } = useParams();
+  const [schedule, setSchedule] = useState(null);
   const [events, setEvents] = useState([]);
+  const [filteredEvents, setFilteredEvents] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-
   const navigate = useNavigate();
 
-  // Helper function to convert time to a row index (starting at 8 AM)
-  const getTimeRow = (time) => {
-    const hours = parseInt(time.split(":")[0]);
-    const minutes = parseInt(time.split(":")[1]);
-
-    const startHour = 8; // Starting from 8 AM
-    const row = (hours - startHour) * 2 + (minutes === "30" ? 1 : 0);
-    return row;
-  };
-
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const hours = Array.from({ length: 15 }, (_, i) => 6 + i); // 6 AM to 8 PM
+  const rowHeight = 40; // Height per half-hour block
 
-  // Function to save the schedule to the database
-  const saveSchedule = async () => {
-    const scheduleData = {
-      userId: "currentUserId", // Replace with actual user ID from authentication
-      name: scheduleName,
-      monday: "", // Add logic to collect events for Monday
-      tuesday: "", // Add logic to collect events for Tuesday
-      wednesday: "", // Add logic to collect events for Wednesday
-      thursday: "", // Add logic to collect events for Thursday
-      friday: "", // Add logic to collect events for Friday
-      saturday: "",
-      sunday: "",
-    };
-  
-    try {
-      // First, check if the schedule already exists
-      const response = await fetch(`http://localhost:6000/api/schedule/${scheduleData.userId}/${scheduleData.name}`);
-      const data = await response.json();
-  
-      if (response.ok) {
-        // If the schedule exists, update it
-        const updateResponse = await fetch(`http://localhost:6000/api/schedule/${data._id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(scheduleData),
-        });
-  
-        const updateData = await updateResponse.json();
-        if (updateResponse.ok) {
-          console.log("Schedule updated successfully:", updateData);
-        } else {
-          console.error("Error updating schedule:", updateData.error);
+  // Convert time (e.g., "6:30") to pixel position on the grid
+  const getTimePosition = (time) => {
+    const [hour, minutes] = time.split(":").map(Number);
+    return (hour - 6) * 2 * rowHeight + (minutes / 30) * rowHeight + 5;
+  };
+
+  // Calculate height of class block based on duration
+  const getClassHeight = (startTime, endTime) => {
+    const start = getTimePosition(startTime);
+    const end = getTimePosition(endTime);
+    return end - start;
+  };
+
+  useEffect(() => {
+    const fetchSchedule = async () => {
+      if (!user || !user.uid || !scheduleName) return;
+
+      try {
+        const response = await fetch(
+          `http://localhost:8080/api/schedule/${user.uid}/${scheduleName}`
+        );
+        if (!response.ok) throw new Error("Schedule not found");
+
+        const data = await response.json();
+        setSchedule(data);
+
+        if (data.content) {
+          const parsedEvents = parseScheduleContent(data.content);
+          setEvents(parsedEvents);
+          setFilteredEvents(parsedEvents);
         }
-      } else {
-        // If the schedule doesn't exist, create a new one
-        const createResponse = await fetch("http://localhost:6000/api/schedule", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(scheduleData),
-        });
-  
-        const createData = await createResponse.json();
-        if (createResponse.ok) {
-          console.log("Schedule created successfully:", createData);
-        } else {
-          console.error("Error creating schedule:", createData.error);
-        }
+      } catch (error) {
+        console.error("❌ Error fetching schedule:", error);
       }
-    } catch (error) {
-      console.error("Error saving schedule:", error);
-    }
+    };
+
+    fetchSchedule();
+  }, [user, scheduleName]);
+
+  // 🔥 Function to parse schedule content correctly
+  const parseScheduleContent = (content) => {
+    let parsedEvents = [];
+
+    // Separate days by ";"
+    const dayEntries = content.split(";").map((entry) => entry.trim());
+
+    dayEntries.forEach((dayEntry) => {
+      if (!dayEntry) return;
+
+      const parts = dayEntry.split(",");
+      const day = parts.shift().trim(); // ✅ Extract day name
+
+      parts.forEach((classEntry) => {
+        const classParts = classEntry.trim().split(" ");
+
+        if (classParts.length >= 3) {
+          const classCode = classParts[0]; // Class ID
+          const startTime = classParts[1]; // Start Time
+          const endTime = classParts[2]; // End Time
+
+          parsedEvents.push({
+            day,
+            title: classCode,
+            startTime,
+            endTime,
+            topPosition: getTimePosition(startTime), // ✅ Correct Y position
+            height: getClassHeight(startTime, endTime), // ✅ Class block height is proportional
+          });
+        }
+      });
+    });
+
+    return parsedEvents;
   };
 
-  // Handle exit by saving the schedule before navigating away
   const handleExit = () => {
-    saveSchedule(); // Save the schedule when the page is closed
-    navigate("/"); // Navigate to the home page
+    navigate("/");
   };
 
-  // Handle the click event to start editing the schedule name
-  const handleScheduleNameClick = () => {
-    setIsEditing(true); // Enable editing mode when clicked
-  };
+  // ✅ Search Filtering
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredEvents(events);
+    } else {
+      const filtered = events.filter((event) =>
+        event.title.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredEvents(filtered.length > 0 ? filtered : events);
+    }
+  }, [searchQuery, events]);
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      setIsEditing(false); // Disable editing when pressing Enter
+  // ✅ Send Search Query to Backend on Submit
+  const handleSearchSubmit = async () => {
+    if (!searchQuery.trim() || !schedule) return;
+
+    try {
+      const response = await axios.post("http://localhost:8080/api/schedulechange", {
+        user:user.uid,
+        name:schedule.name,
+        schedule: schedule.content,
+        query: searchQuery,
+      });
+
+      console.log("✅ Schedule Change Response:", response.data);
+    } catch (error) {
+      console.error("❌ Error sending schedule change request:", error);
     }
   };
-
-  // Handle the change of the schedule name during editing
-  const handleNameChange = (e) => {
-    setScheduleName(e.target.value);
-  };
-
-  // Filtering events based on search query
-  const filteredEvents = events.filter((event) =>
-    event.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <div style={styles.container}>
-      {/* Schedule Name - Editable on click */}
-      {isEditing ? (
+      {/* ✅ FIXED: Schedule Name Now Displays Correctly */}
+      <h2 style={styles.scheduleNameText}>
+        {schedule ? schedule.name : "Loading..."}
+      </h2>
+
+      {/* Search Bar with Submit Button */}
+      <div style={styles.searchContainer}>
         <input
           type="text"
-          value={scheduleName}
-          onChange={handleNameChange}
-          onBlur={() => setIsEditing(false)} // Switch to regular text when focus is lost
-          onKeyPress={handleKeyPress} // Switch to regular text on Enter
-          style={styles.scheduleNameInput}
+          placeholder="Search classes..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={styles.searchBar}
         />
-      ) : (
-        <div
-          onClick={handleScheduleNameClick} // Switch to editable input when clicked
-          style={styles.scheduleNameText}
-        >
-          {scheduleName} {/* Display the schedule name */}
-        </div>
-      )}
-
-      {/* Search Bar */}
-      <input
-        type="text"
-        placeholder="Search events..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        style={styles.searchBar}
-      />
-
-      <div style={styles.calendarContainer}>
-        {days.map((day) => (
-          <div key={day} style={styles.dayColumn}>
-            <div style={styles.dayTitle}>{day}</div>
-            {filteredEvents
-              .filter((event) => event.day === day)
-              .map((event) => (
-                <div
-                  key={event.id}
-                  style={{
-                    ...styles.event,
-                    top: `${getTimeRow(event.time) * 30}px`, // Adjust based on time
-                  }}
-                >
-                  <p style={styles.eventTitle}>{event.title}</p>
-                </div>
-              ))}
-          </div>
-        ))}
+        <button onClick={handleSearchSubmit} style={styles.searchSubmitButton}>
+          Submit
+        </button>
       </div>
 
-      {/* Exit button */}
+      {/* Calendar Display */}
+      <div style={styles.calendarWrapper}>
+        {/* ✅ Time Labels Column */}
+        <div style={styles.timeColumn}>
+          {hours.map((hour) => (
+            <div key={hour} style={styles.timeLabel}>
+              {hour}:00
+            </div>
+          ))}
+        </div>
+
+        {/* ✅ FIXED: Grid height matches time labels */}
+        <div style={styles.calendarContainer}>
+          {days.map((day) => (
+            <div key={day} style={styles.dayColumn}>
+              <div style={styles.dayTitle}>{day}</div>
+              {filteredEvents
+                .filter((event) => event.day === day)
+                .map((event, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      ...styles.event,
+                      top: `${event.topPosition}px`, // ✅ ALIGNED PERFECTLY WITH TIME
+                      height: `${event.height}px`, // ✅ PROPORTIONAL CLASS BLOCK HEIGHT
+                    }}
+                  >
+                    <p style={styles.eventTitle}>
+                      {event.title} ({event.startTime} - {event.endTime})
+                    </p>
+                  </div>
+                ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div style={styles.exitContainer}>
         <button onClick={handleExit} style={styles.exitButton}>
           Exit
@@ -166,6 +192,7 @@ const Scheduling = () => {
   );
 };
 
+// Styles
 const styles = {
   container: {
     padding: "10px",
@@ -175,71 +202,72 @@ const styles = {
     flexDirection: "column",
     justifyContent: "space-between",
   },
-  scheduleNameInput: {
-    padding: "10px",
-    fontSize: "16px",
-    width: "100%",
-    marginBottom: "10px", // Adjust spacing
-    borderRadius: "8px",
-    border: "1px solid #ddd",
-    backgroundColor: "#fff",
-  },
   scheduleNameText: {
     padding: "10px",
-    fontSize: "16px",
-    color: "#333",
+    fontSize: "20px",
     fontWeight: "bold",
-    marginBottom: "10px", // Adjust spacing
+    textAlign: "center",
+    marginBottom: "10px",
     borderRadius: "8px",
     border: "1px solid #ddd",
     backgroundColor: "#fff",
-    cursor: "pointer", // Indicating that it's clickable
+  },
+  searchContainer: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: "15px",
   },
   searchBar: {
-    width: "100%",
-    padding: "8px", // Smaller padding for the search bar
+    width: "80%",
+    padding: "8px",
     borderRadius: "8px",
     border: "1px solid #ddd",
-    marginBottom: "15px", // Space between search bar and event form
     fontSize: "14px",
+  },
+  searchSubmitButton: {
+    marginLeft: "10px",
+    padding: "8px 15px",
+    backgroundColor: "#007bff",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+  },
+  calendarWrapper: {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  timeColumn: {
+    width: "50px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    paddingRight: "10px",
+    borderRight: "2px solid #ddd",
+  },
+  timeLabel: {
+    height: "80px",
+    lineHeight: "80px",
+    fontSize: "14px",
+    color: "#555",
   },
   calendarContainer: {
     display: "flex",
     justifyContent: "space-between",
-    position: "relative",
     flex: 1,
-  },
-  dayColumn: {
-    flex: 1,
-    padding: "5px",
-    position: "relative",
-    borderRight: "2px solid #ccc",
-  },
-  dayTitle: {
-    textAlign: "center",
-    fontWeight: "bold",
-    marginBottom: "10px",
-    fontSize: "16px",
-  },
-  event: {
-    position: "absolute",
-    width: "85%",
-    backgroundColor: "#007bff",
-    color: "white",
-    padding: "6px",
-    borderRadius: "4px",
-    fontSize: "12px",
-  },
-  eventTitle: {
-    margin: 0,
-    fontSize: "12px",
+    border: "2px solid #ddd",
+    padding: "10px",
+    backgroundColor: "#fff",
+    minHeight: "1200px",
   },
   exitContainer: {
     textAlign: "center",
     marginTop: "20px",
   },
   exitButton: {
-    padding: "8px 15px",
+    padding: "10px 20px",
     backgroundColor: "#007bff",
     color: "white",
     border: "none",

@@ -27,7 +27,7 @@ const App = () => {
           
           {/* Protected Routes */}
           <Route path="/" element={<PrivateRoute element={<Home />} />} />
-          <Route path="/scheduling" element={<PrivateRoute element={<Scheduling />} />} />
+          <Route path="/scheduling/:scheduleName" element={<PrivateRoute element={<Scheduling />} />} />
           
           {/* New Route for creating a schedule */}
           <Route path="/create-schedule" element={<PrivateRoute element={<CreateSchedule />} />} />
