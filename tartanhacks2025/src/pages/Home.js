@@ -1,30 +1,23 @@
-import React, { useContext, useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useContext, useState } from "react";
+import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
 import { auth } from "../firebase";
 import { AuthContext } from "../context/AuthContext";
-import axios from "axios";
 
 const Home = () => {
   const { user } = useContext(AuthContext);
-  const [schedules, setSchedules] = useState([]);
+  const [schedules, setSchedules] = useState([
+    { id: 1, name: "Project Meeting" },
+    { id: 2, name: "Team Sync-up" },
+    { id: 3, name: "Client Presentation" },
+  ]); // Replace with actual data from your database
   const navigate = useNavigate(); // Hook for navigation
-
-  // Fetch the user's schedules from the backend
-  const fetchSchedules = async () => {
-    try {
-      const response = await axios.get(`http://localhost:6000/api/schedules/${user?.uid}`);
-      setSchedules(response.data);
-    } catch (error) {
-      console.error("Error fetching schedules:", error);
-    }
-  };
-
-  useEffect(() => {
-    fetchSchedules();
-  }, []);
 
   const handleLogout = async () => {
     await auth.signOut();
+  };
+
+  const handleCreateSchedule = () => {
+    navigate("/scheduling"); // Navigate directly to the Scheduling page
   };
 
   return (
@@ -45,7 +38,7 @@ const Home = () => {
             <div style={styles.schedulesList}>
               {schedules.length > 0 ? (
                 schedules.map((schedule) => (
-                  <div key={schedule._id} style={styles.scheduleItem}>
+                  <div key={schedule.id} style={styles.scheduleItem}>
                     <p style={styles.scheduleName}>{schedule.name}</p>
                   </div>
                 ))
@@ -53,11 +46,7 @@ const Home = () => {
                 <p style={styles.noSchedules}>No schedules available</p>
               )}
             </div>
-
-            <button 
-              style={styles.createScheduleButton} 
-              onClick={() => navigate("/create-schedule")}
-            >
+            <button onClick={handleCreateSchedule} style={styles.createScheduleButton}>
               Create New Schedule
             </button>
           </div>
@@ -67,7 +56,6 @@ const Home = () => {
   );
 };
 
-// Define styles here (same as before)
 const styles = {
   pageContainer: {
     display: "flex",
@@ -80,17 +68,17 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    maxWidth: "1200px",
+    maxWidth: "1200px", // Limit max width of container
     width: "100%",
     padding: "50px",
   },
   leftSection: {
     flex: 1,
-    marginRight: "20px",
+    marginRight: "20px", // Space between left and right sections
   },
   rightSection: {
     flex: 1,
-    marginLeft: "20px",
+    marginLeft: "20px", // Space between left and right sections
   },
   formContainer: {
     backgroundColor: "white",
@@ -112,6 +100,17 @@ const styles = {
     marginBottom: "20px",
     color: "#555",
   },
+  submitButton: {
+    padding: "12px",
+    backgroundColor: "#007bff",
+    color: "white",
+    fontSize: "16px",
+    border: "none",
+    borderRadius: "5px",
+    cursor: "pointer",
+    width: "100%",
+    transition: "background-color 0.3s",
+  },
   logoutButton: {
     padding: "12px",
     backgroundColor: "#ff4c4c",
@@ -123,6 +122,9 @@ const styles = {
     width: "100%",
     marginTop: "15px",
     transition: "background-color 0.3s",
+  },
+  link: {
+    textDecoration: "none",
   },
   schedulesContainer: {
     backgroundColor: "white",

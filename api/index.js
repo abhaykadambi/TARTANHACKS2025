@@ -36,28 +36,67 @@ const Schedule = mongoose.model('Schedule', scheduleSchema);
 
 // Route to create a new schedule
 app.post('/api/schedule', async (req, res) => {
-    const { userId, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday } = req.body;
-  
-    try {
-      const schedule = new Schedule({
-        userId,
-        name,
-        monday,
-        tuesday,
-        wednesday,
-        thursday,
-        friday,
-        saturday,
-        sunday,
-      });
-  
-      await schedule.save();
-      res.status(201).json({ message: 'Schedule saved successfully' });
-    } catch (err) {
-      console.error('Error saving schedule:', err);
-      res.status(500).json({ error: 'Failed to save schedule' });
+  const { userId, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday } = req.body;
+
+  try {
+    // Check if the schedule already exists
+    const existingSchedule = await Schedule.findOne({ userId, name });
+
+    if (existingSchedule) {
+      return res.status(400).json({ error: 'Schedule with this name already exists for this user' });
     }
-  });
+
+    // If not, create a new schedule
+    const schedule = new Schedule({
+      userId,
+      name,
+      monday,
+      tuesday,
+      wednesday,
+      thursday,
+      friday,
+      saturday,
+      sunday,
+    });
+
+    await schedule.save();
+    res.status(201).json({ message: 'Schedule created successfully' });
+  } catch (err) {
+    console.error('Error saving schedule:', err);
+    res.status(500).json({ error: 'Failed to save schedule' });
+  }
+});
+
+// Route to update a schedule by ID
+app.put('/api/schedule/:scheduleId', async (req, res) => {
+  const { scheduleId } = req.params;
+  const { name, monday, tuesday, wednesday, thursday, friday, saturday, sunday } = req.body;
+
+  try {
+    const schedule = await Schedule.findById(scheduleId);
+
+    if (!schedule) {
+      return res.status(404).json({ error: 'Schedule not found' });
+    }
+
+    // Update the schedule fields
+    schedule.name = name;
+    schedule.monday = monday;
+    schedule.tuesday = tuesday;
+    schedule.wednesday = wednesday;
+    schedule.thursday = thursday;
+    schedule.friday = friday;
+    schedule.saturday = saturday;
+    schedule.sunday = sunday;
+
+    // Save the updated schedule
+    await schedule.save();
+    res.status(200).json({ message: 'Schedule updated successfully', schedule });
+  } catch (err) {
+    console.error('Error updating schedule:', err);
+    res.status(500).json({ error: 'Failed to update schedule' });
+  }
+});
 
 // Route to get a user's schedule by schedule name
 app.get('/api/schedule/:userId/:scheduleName', async (req, res) => {
