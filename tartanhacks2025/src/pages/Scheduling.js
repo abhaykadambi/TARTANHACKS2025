@@ -1,162 +1,132 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSearch } from "@fortawesome/free-solid-svg-icons";
+import { useNavigate } from "react-router-dom"; // Using useNavigate from React Router v6
 
 const Scheduling = () => {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [events, setEvents] = useState([
+    { id: 1, title: "Project Meeting", day: "Monday", time: "09:00" },
+    { id: 2, title: "Team Sync-up", day: "Tuesday", time: "13:00" },
+    { id: 3, title: "Client Presentation", day: "Monday", time: "14:00" },
+    { id: 4, title: "Interview", day: "Wednesday", time: "10:00" },
+  ]);
 
-  // Placeholder for scheduling data (You can replace this with your actual data)
-  const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const events = [
-    { day: "Mon", time: "9:00 AM", title: "Meeting with Client" },
-    { day: "Wed", time: "11:00 AM", title: "Team Stand-up" },
-    { day: "Fri", time: "1:00 PM", title: "Project Review" },
-  ];
+  const navigate = useNavigate(); // Use useNavigate from React Router v6
+
+  // Helper function to convert time to a row index (starting at 8 AM)
+  const getTimeRow = (time) => {
+    const hours = parseInt(time.split(":")[0]);
+    const minutes = parseInt(time.split(":")[1]);
+
+    const startHour = 8; // Starting from 8 AM
+    const row = (hours - startHour) * 2 + (minutes === "30" ? 1 : 0);
+    return row;
+  };
+
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
+  const handleExit = () => {
+    // Navigate to the home page or any other page you need
+    navigate("/");
+  };
 
   return (
     <div style={styles.container}>
-      <div style={styles.searchBarContainer}>
-        <FontAwesomeIcon icon={faSearch} style={styles.searchIcon} />
-        <input
-          type="text"
-          placeholder="Search events..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={styles.searchBar}
-        />
+      <input
+        type="text"
+        placeholder="Search events..."
+        style={styles.searchBar}
+      />
+      <div style={styles.calendarContainer}>
+        {days.map((day) => (
+          <div key={day} style={styles.dayColumn}>
+            <div style={styles.dayTitle}>{day}</div>
+            {events
+              .filter((event) => event.day === day)
+              .map((event) => (
+                <div
+                  key={event.id}
+                  style={{
+                    ...styles.event,
+                    top: `${getTimeRow(event.time) * 30}px`, // Adjust based on time
+                  }}
+                >
+                  <p style={styles.eventTitle}>{event.title}</p>
+                </div>
+              ))}
+          </div>
+        ))}
       </div>
 
-      <div style={styles.calendarContainer}>
-        <div style={styles.weekDaysContainer}>
-          {weekDays.map((day) => (
-            <div key={day} style={styles.dayHeader}>
-              <p style={styles.dayText}>{day}</p>
-            </div>
-          ))}
-        </div>
-        <div style={styles.eventsContainer}>
-          {weekDays.map((day) => (
-            <div key={day} style={styles.dayColumn}>
-              <div style={styles.eventsList}>
-                {events
-                  .filter((event) => event.day === day)
-                  .map((event, index) => (
-                    <div key={index} style={styles.eventCard}>
-                      <p style={styles.eventTime}>{event.time}</p>
-                      <p style={styles.eventTitle}>{event.title}</p>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* Exit button moved to the bottom */}
+      <div style={styles.exitContainer}>
+        <button onClick={handleExit} style={styles.exitButton}>
+          Exit
+        </button>
       </div>
-      <Link to="/" style={styles.homeLink}>
-        <button style={styles.backButton}>Back to Home</button>
-      </Link>
     </div>
   );
 };
 
 const styles = {
   container: {
+    padding: "10px", // Reduced padding for more space
+    backgroundColor: "#f9f9f9",
+    minHeight: "100vh",
     display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    height: "100vh",
-    backgroundColor: "#f4f7fc",
-    paddingTop: "50px",
-  },
-  searchBarContainer: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: "20px",
-  },
-  searchIcon: {
-    position: "absolute",
-    left: "20px",
-    color: "#555",
+    flexDirection: "column", // Column layout to stack items vertically
+    justifyContent: "space-between", // Space out the content (calendar and button)
   },
   searchBar: {
-    padding: "10px 20px",
-    fontSize: "16px",
-    borderRadius: "25px",
+    width: "100%",
+    padding: "8px", // Smaller padding for the search bar
+    borderRadius: "8px",
     border: "1px solid #ddd",
-    outline: "none",
-    width: "80%",
-    maxWidth: "500px",
-    paddingLeft: "40px", // for search icon spacing
+    marginBottom: "15px", // Less margin to make everything more compact
+    fontSize: "14px", // Smaller text size
   },
   calendarContainer: {
-    width: "100%",
-    maxWidth: "1200px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  weekDaysContainer: {
     display: "flex",
     justifyContent: "space-between",
-    width: "100%",
-    marginBottom: "10px",
-  },
-  dayHeader: {
-    width: "calc(100% / 7)",
-    textAlign: "center",
-  },
-  dayText: {
-    fontWeight: "bold",
-    fontSize: "16px",
-    color: "#333",
-  },
-  eventsContainer: {
-    display: "flex",
-    width: "100%",
-    justifyContent: "space-between",
+    position: "relative",
+    flex: 1, // Allow the calendar to take the majority of the space
   },
   dayColumn: {
-    width: "calc(100% / 7)",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
+    flex: 1,
+    padding: "5px", // Reduced padding for the day columns
+    position: "relative",
+    borderRight: "2px solid #ccc", // Divider between days
   },
-  eventsList: {
-    width: "100%",
-    marginTop: "10px",
-  },
-  eventCard: {
-    backgroundColor: "#fff",
-    padding: "10px",
-    borderRadius: "5px",
-    boxShadow: "0 2px 5px rgba(0, 0, 0, 0.1)",
-    marginBottom: "10px",
-    width: "80%",
+  dayTitle: {
     textAlign: "center",
-  },
-  eventTime: {
-    fontSize: "14px",
-    color: "#007bff",
-  },
-  eventTitle: {
-    fontSize: "16px",
     fontWeight: "bold",
-    color: "#333",
+    marginBottom: "10px",
+    fontSize: "16px", // Smaller font size for day titles
   },
-  homeLink: {
-    marginTop: "20px",
-  },
-  backButton: {
-    padding: "10px 20px",
+  event: {
+    position: "absolute",
+    width: "85%", // Smaller width for events
     backgroundColor: "#007bff",
     color: "white",
-    fontSize: "16px",
+    padding: "6px", // Smaller padding for events
+    borderRadius: "4px",
+    fontSize: "12px", // Smaller font size for event titles
+    zIndex: 10,
+  },
+  eventTitle: {
+    margin: 0,
+    fontSize: "12px", // Smaller text size for event title
+  },
+  exitContainer: {
+    textAlign: "center", // Center the button horizontally
+    marginTop: "20px", // Space between the calendar and button
+  },
+  exitButton: {
+    padding: "8px 15px", // Smaller button
+    backgroundColor: "#007bff",
+    color: "white",
     border: "none",
-    borderRadius: "5px",
+    borderRadius: "8px",
     cursor: "pointer",
-    transition: "background-color 0.3s",
+    fontSize: "14px", // Smaller font size for the button
   },
 };
 
