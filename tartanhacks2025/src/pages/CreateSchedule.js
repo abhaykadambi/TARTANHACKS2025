@@ -14,7 +14,7 @@ const CreateSchedule = () => {
     sunday: "",
   });
   
-  const navigate = useNavigate(); // Hook for navigation
+  const navigate = useNavigate("/scheduling"); // Hook for navigation
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -35,7 +35,7 @@ const CreateSchedule = () => {
 
       if (response.status === 201) {
         // Navigate to the newly created schedule's page (or home page)
-        navigate(`/schedule/${response.data.scheduleId}`);
+        navigate(`/`);
       }
     } catch (error) {
       console.error("Error creating schedule:", error);
